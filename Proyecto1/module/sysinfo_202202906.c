@@ -25,6 +25,7 @@ MODULE_VERSION("1.0");
 
 #define PROC_NAME "sysinfo_202202906"
 #define MAX_CMDLINE_LENGTH 256
+#define CONTAINER_ID_LENGTH 12
 #define CONTAINER_PREFIX "stress_"
 
 // Función para obtener la línea de comandos de un proceso
@@ -97,6 +98,55 @@ static char *get_process_cmdline(struct task_struct *task) {
     return cmdline;
 }
 
+static char *get_container_id(struct task_struct *task) {
+    struct cgroup *cgrp;
+    char *container_id = NULL;
+    char *path_buffer;
+
+    /* Asignar memoria dinámicamente para evitar stack overflow */
+    path_buffer = kmalloc(PATH_MAX, GFP_KERNEL);
+    if (!path_buffer)
+        return NULL;
+
+    /* Obtener el cgroup asociado */
+    cgrp = task_cgroup(task, memory_cgrp_id);
+    if (!cgrp) {
+        kfree(path_buffer);
+        return NULL;
+    }
+
+    /* Obtener la ruta del cgroup */
+    if (cgroup_path(cgrp, path_buffer, PATH_MAX) <= 0) {
+        kfree(path_buffer);
+        return NULL;
+    }
+
+    pr_info("Cgroup path: %s\n", path_buffer);
+
+    /* Buscar "docker-" en la ruta */
+    char *docker_pos = strstr(path_buffer, "docker-");
+    if (docker_pos) {
+        docker_pos += 7; // Saltar "docker-"
+
+        /* Buscar el final del ID del contenedor antes de ".scope" */
+        char *end_pos = strstr(docker_pos, ".scope");
+        if (end_pos) {
+            *end_pos = '\0';
+        }
+
+        /* Recortar el ID a 12 caracteres */
+        container_id = kmalloc(CONTAINER_ID_LENGTH + 1, GFP_KERNEL);
+        if (container_id) {
+            strncpy(container_id, docker_pos, CONTAINER_ID_LENGTH);
+            container_id[CONTAINER_ID_LENGTH] = '\0'; // Asegurar terminación
+        }
+    }
+
+    /* Liberar memoria del buffer */
+    kfree(path_buffer);
+    return container_id;
+}
+
 static unsigned long get_cpu_usage(void) {
     unsigned long user, nice, system, idle;
     unsigned long total_usage, total_time;
@@ -140,6 +190,7 @@ static int sysinfo_show(struct seq_file *m, void *v) {
             unsigned long disk_read_mb = 0, disk_write_mb = 0;
             unsigned long io_read = 0, io_write = 0;
             char *cmdline = NULL;
+            char *containerID = NULL;
 
             totalram = si.totalram * 4;
             if (task->mm) {
@@ -151,6 +202,7 @@ static int sysinfo_show(struct seq_file *m, void *v) {
             unsigned long total_time = task->utime + task->stime;
             cpu_usage = (total_time * 10000) / total_jiffies;
             cmdline = get_process_cmdline(task);
+            containerID = get_container_id(task);
 
             // Obtener estadísticas de I/O
             disk_read_mb = task->ioac.read_bytes / (1024 * 1024); // Convertir a MB
@@ -168,6 +220,7 @@ static int sysinfo_show(struct seq_file *m, void *v) {
             seq_printf(m, "      \"PID\": %d,\n", task->pid);
             seq_printf(m, "      \"Name\": \"%s\",\n", task->comm);
             seq_printf(m, "      \"Cmdline\": \"%s\",\n", cmdline ? cmdline : "N/A");
+            seq_printf(m, "      \"ContainerID\": \"%s\",\n", containerID ? containerID : "N/AA");
             seq_printf(m, "      \"MemoryUsage\": %lu.%02lu,\n", mem_usage / 100, mem_usage % 100);
             seq_printf(m, "      \"CPUUsage\": %lu.%02lu,\n", cpu_usage / 100, cpu_usage % 100);
             seq_printf(m, "      \"DiskReadMB\": %lu,\n", disk_read_mb);
@@ -178,6 +231,9 @@ static int sysinfo_show(struct seq_file *m, void *v) {
 
             if (cmdline) {
                 kfree(cmdline);
+            }
+            if (containerID) {
+                kfree(containerID);
             }
         }
     }

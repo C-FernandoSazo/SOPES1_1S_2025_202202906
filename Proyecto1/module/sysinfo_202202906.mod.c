@@ -67,6 +67,12 @@ __used __section("__versions") =
 	"access_process_vm\0\0\0"
 	"\x10\x00\x00\x00\xc8\xf7\x9f\x32"
 	"mmput\0\0\0"
+	"\x20\x00\x00\x00\x0e\x26\xcf\x1c"
+	"kernfs_path_from_node\0\0\0"
+	"\x10\x00\x00\x00\xa8\x26\x6d\x1e"
+	"strstr\0\0"
+	"\x10\x00\x00\x00\xda\xfa\x66\x91"
+	"strncpy\0"
 	"\x10\x00\x00\x00\xba\x0c\x7a\x03"
 	"kfree\0\0\0"
 	"\x1c\x00\x00\x00\xcb\xf6\xfd\xf0"
@@ -90,4 +96,4 @@ __used __section("__versions") =
 MODULE_INFO(depends, "");
 
 
-MODULE_INFO(srcversion, "31DB7A967E7623287C8D46F");
+MODULE_INFO(srcversion, "E1991DE4C5DCE83CCD5DA49");
