@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "seq_file.h": "c",
+        "sched.h": "c",
+        "cstdlib": "c"
+    }
+}
