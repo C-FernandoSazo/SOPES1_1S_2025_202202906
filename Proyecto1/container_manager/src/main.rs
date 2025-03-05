@@ -59,7 +59,7 @@ fn create_log_entry(sysinfo: SysInfo) -> LogEntry {
 
 // Constants
 const SYSINFO_PATH: &str = "/proc/sysinfo_202202906";
-const LOGS_CONTAINER: &str = "logs_manager";
+const LOGS_CONTAINER: &str = "logs_managerr";
 const LOGS_ENDPOINT: &str = "http://localhost:5000/logs";
 
 fn read_sysinfo() -> Option<SysInfo> {
@@ -68,33 +68,56 @@ fn read_sysinfo() -> Option<SysInfo> {
 }
 
 async fn create_logs_container(docker: &Docker) {
-    let containers = docker.list_containers(Some(ListContainersOptions::<String> {
+    // Obtener lista de contenedores
+    let containers = match docker.list_containers(Some(ListContainersOptions::<String> {
         all: true,
         ..Default::default()
-    })).await.unwrap_or_else(|_| vec![]);
+    })).await {
+        Ok(containers) => containers,
+        Err(e) => {
+            eprintln!("[ERROR] No se pudo listar los contenedores: {:?}", e);
+            return;
+        }
+    };
 
+    // Verificar si el contenedor de logs ya existe
     let log_exists = containers.iter().any(|c| {
         c.names.as_ref()
             .map_or(false, |names| names.iter().any(|name| name.contains(LOGS_CONTAINER)))
     });
 
-    if !log_exists {
-        println!("[INFO] Creando contenedor administrador de logs...");
-        let config = Config {
-            image: Some("python:3.8"),
-            cmd: Some(vec!["python", "-m", "http.server", "5000"]),
-            ..Default::default()
-        };
+    if log_exists {
+        println!("[INFO] El contenedor de logs ya existe. No se creará otro.");
+        return;
+    }
 
-        docker.create_container(
-            Some(CreateContainerOptions {
-                name: LOGS_CONTAINER,
-                platform: None, 
-            }),
-            config,
-        ).await.ok();
+    println!("[INFO] Creando contenedor administrador de logs...");
+    
+    let config = Config {
+        image: Some("python:3.9"),
+        cmd: Some(vec!["python", "-m", "http.server", "5000"]),
+        ..Default::default()
+    };
 
-        docker.start_container(LOGS_CONTAINER, None::<StartContainerOptions<String>>).await.ok();
+    // Crear el contenedor
+    match docker.create_container(
+        Some(CreateContainerOptions {
+            name: LOGS_CONTAINER,
+            platform: None,
+        }),
+        config,
+    ).await {
+        Ok(_) => println!("[INFO] Contenedor creado exitosamente."),
+        Err(e) => {
+            eprintln!("[ERROR] No se pudo crear el contenedor: {:?}", e);
+            return;
+        }
+    }
+
+    // Iniciar el contenedor
+    match docker.start_container(LOGS_CONTAINER, None::<StartContainerOptions<String>>).await {
+        Ok(_) => println!("[INFO] Contenedor iniciado correctamente."),
+        Err(e) => eprintln!("[ERROR] No se pudo iniciar el contenedor: {:?}", e),
     }
 }
 

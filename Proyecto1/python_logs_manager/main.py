@@ -13,12 +13,17 @@ from dateutil import parser  # Agregar importación
 app = FastAPI()
 
 # 📂 Archivo JSON donde se guardarán los logs
-LOGS_FILE = Path("/app/logs.json")
+LOGS_FILE = Path("/app/logs/logs.json")
 
-# 📂 Verifica si el archivo de logs existe, si no, lo crea
-if not LOGS_FILE.exists():
-    with open(LOGS_FILE, "w") as f:
-        json.dump([], f)
+# Crear el directorio y el archivo si no existen
+def ensure_logs_file():
+    LOGS_FILE.parent.mkdir(parents=True, exist_ok=True)  # Crear /app/logs si no existe
+    if not LOGS_FILE.exists():
+        with open(LOGS_FILE, "w") as f:
+            json.dump([], f)
+
+ensure_logs_file()
+
 
 # 📌 Modelo de datos para los logs
 class LogEntry(BaseModel):
@@ -29,6 +34,7 @@ class LogEntry(BaseModel):
 @app.post("/logs")
 def receive_log(entry: LogEntry):
     try:
+        ensure_logs_file()
         with open(LOGS_FILE, "r+") as f:
             logs = json.load(f)
             logs.append(entry.dict())  # Agrega el nuevo log
