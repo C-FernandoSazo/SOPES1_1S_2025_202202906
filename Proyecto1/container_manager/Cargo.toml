@@ -1,7 +1,7 @@
 [package]
 name = "container_manager"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
@@ -10,4 +10,5 @@ reqwest = { version = "0.11", features = ["json", "blocking"] }
 tokio = { version = "1", features = ["full"] }
 bollard = "0.15"  # Cliente para Docker
 signal-hook = "0.3"
-
+chrono = "0.4"  # Para manejar timestamps en logs
+prettytable-rs = "0.10"  # Para imprimir datos en consola con formato

@@ -1,0 +1,11 @@
+/home/onlfer/Documentos/Programas/2025/SOPES1_1S_2025_202202906/Proyecto1/container_manager/target/release/deps/libipnet-5e6ce5887fc13f4c.rmeta: /home/onlfer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/lib.rs /home/onlfer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/ipext.rs /home/onlfer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/ipnet.rs /home/onlfer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/parser.rs /home/onlfer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/mask.rs
+
+/home/onlfer/Documentos/Programas/2025/SOPES1_1S_2025_202202906/Proyecto1/container_manager/target/release/deps/libipnet-5e6ce5887fc13f4c.rlib: /home/onlfer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/lib.rs /home/onlfer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/ipext.rs /home/onlfer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/ipnet.rs /home/onlfer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/parser.rs /home/onlfer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/mask.rs
+
+/home/onlfer/Documentos/Programas/2025/SOPES1_1S_2025_202202906/Proyecto1/container_manager/target/release/deps/ipnet-5e6ce5887fc13f4c.d: /home/onlfer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/lib.rs /home/onlfer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/ipext.rs /home/onlfer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/ipnet.rs /home/onlfer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/parser.rs /home/onlfer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/mask.rs
+
+/home/onlfer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/lib.rs:
+/home/onlfer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/ipext.rs:
+/home/onlfer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/ipnet.rs:
+/home/onlfer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/parser.rs:
+/home/onlfer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/mask.rs:

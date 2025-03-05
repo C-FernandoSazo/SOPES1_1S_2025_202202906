@@ -2,10 +2,10 @@
 
 # Definir las opciones de consumo
 OPTIONS=(
-    "--cpu 2 --timeout 60s"       # CPU
-    "--io 2 --timeout 60s"        # I/O
-    "--vm 2 --vm-bytes 256M --timeout 60s"  # RAM
-    "--hdd 2 --hdd-bytes 1G --timeout 60s"  # Disco
+    "--cpu 1 --timeout 300s"       # CPU
+    "--io 1 --timeout 300s"        # I/O
+    "--vm 2 --vm-bytes 256M --timeout 300s"  # RAM
+    "--hdd 1 --hdd-bytes 1G --timeout 300s"  # Disco
 )
 
 # Crear 10 contenedores con nombres únicos
@@ -21,7 +21,9 @@ for i in {1..1}; do
     CONTAINER_NAME="stress_${CURRENT_DATE}_${i}"
 
     # Ejecutar el contenedor en segundo plano
-    docker run -d --name "$CONTAINER_NAME" containerstack/alpine-stress sh -c "exec stress $OPTION"
+    docker run -d --name "$CONTAINER_NAME" containerstack/alpine-stress sh -c "exec stress --vm 2 --vm-bytes 256M"
+    docker run -d --name "cpucontainer" containerstack/alpine-stress sh -c "exec stress --cpu 1"
+    docker run -d --name "hddcontainer" containerstack/alpine-stress sh -c "exec stress --hdd 1 --hdd-bytes 1G "
 
     echo "Contenedor creado: $CONTAINER_NAME con opción $OPTION"
 done
