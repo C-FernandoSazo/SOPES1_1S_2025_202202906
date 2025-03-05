@@ -1236,6 +1236,9 @@ deps_/home/onlfer/Documentos/Programas/2025/SOPES1_1S_2025_202202906/Proyecto1/m
   include/asm-generic/sections.h \
     $(wildcard include/config/HAVE_FUNCTION_DESCRIPTORS) \
   include/linux/cgroup_refcnt.h \
+  include/linux/delay.h \
+  arch/x86/include/asm/delay.h \
+  include/asm-generic/delay.h \
 
 /home/onlfer/Documentos/Programas/2025/SOPES1_1S_2025_202202906/Proyecto1/module/sysinfo_202202906.o: $(deps_/home/onlfer/Documentos/Programas/2025/SOPES1_1S_2025_202202906/Proyecto1/module/sysinfo_202202906.o)
 

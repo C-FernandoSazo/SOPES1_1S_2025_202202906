@@ -21,6 +21,7 @@
 #include <linux/time.h>
 #include <linux/mutex.h>
 #include <linux/list.h>
+#include <linux/delay.h>
 
 static LIST_HEAD(cpu_usage_list); // Global list to track usage data
 static DEFINE_MUTEX(cpu_usage_lock); // Mutex for thread safety
@@ -336,14 +337,15 @@ static unsigned long get_cpu_usage_container(const char *container_id) {
     return cpu_usage; // Returns usage in microseconds
 }
 
-static void get_io_stats(const char *container_id, unsigned long *read_mb, unsigned long *write_mb) {
+static void get_io_stats(const char *container_id, unsigned long *read_mb, unsigned long *write_mb, 
+    unsigned long *io_read_ops, unsigned long *io_write_ops) {
     char *path = NULL;
     struct file *filp = NULL;
     char *buf = NULL;
     loff_t pos = 0;
     ssize_t bytes_read;
     char *line, *value_start, *end;
-    unsigned long current_rbytes = 0, current_wbytes = 0;
+    unsigned long current_rbytes = 0, current_wbytes = 0, current_readops = 0, current_writeops = 0;
     int ret;
     struct cpu_usage_data *data = NULL;
     ktime_t now = ktime_get();
@@ -412,6 +414,34 @@ static void get_io_stats(const char *container_id, unsigned long *read_mb, unsig
                     if (ret < 0) current_wbytes = 0;
                 }
             }
+            if ((value_start = strstr(line, "rios=")) != NULL) {
+                value_start += strlen("rios=");
+                end = value_start;
+                while (*end && *end != ' ' && *end != '\n') end++;
+                if (end > value_start) {
+                    char temp[32];
+                    size_t len = end - value_start;
+                    if (len >= sizeof(temp)) len = sizeof(temp) - 1;
+                    strncpy(temp, value_start, len);
+                    temp[len] = '\0';
+                    ret = kstrtoul(temp, 10, &current_readops);
+                    if (ret < 0) current_readops = 0;
+                }
+            }
+            if ((value_start = strstr(line, "wios=")) != NULL) {
+                value_start += strlen("wios=");
+                end = value_start;
+                while (*end && *end != ' ' && *end != '\n') end++;
+                if (end > value_start) {
+                    char temp[32];
+                    size_t len = end - value_start;
+                    if (len >= sizeof(temp)) len = sizeof(temp) - 1;
+                    strncpy(temp, value_start, len);
+                    temp[len] = '\0';
+                    ret = kstrtoul(temp, 10, &current_writeops);
+                    if (ret < 0) current_writeops = 0;
+                }
+            }
             line = strstr(line, "\n");
             if (line) line++;
         }
@@ -444,24 +474,10 @@ static void get_io_stats(const char *container_id, unsigned long *read_mb, unsig
         }
     }
 
-    if (data) {
-        elapsed_us = ktime_us_delta(now, data->last_timestamp);
-        if (elapsed_us > 0) {
-            read_diff = current_rbytes - data->last_rbytes;
-            write_diff = current_wbytes - data->last_wbytes;
-            // Convert to MB per second (approximate)
-            if (elapsed_us > 0) {
-                *read_mb = (read_diff / (1024 * 1024)) * (1000000 / elapsed_us); // MB/s scaled by 1000000
-                *write_mb = (write_diff / (1024 * 1024)) * (1000000 / elapsed_us); // MB/s scaled by 1000000
-            }
-        } else {
-            *read_mb = 0;
-            *write_mb = 0;
-        }
-        data->last_rbytes = current_rbytes;
-        data->last_wbytes = current_wbytes;
-        data->last_timestamp = now;
-    }
+    *read_mb = current_rbytes / 1024;
+    *write_mb = current_wbytes / 1024;
+    *io_read_ops = current_readops;
+    *io_write_ops = current_writeops;
 
     mutex_unlock(&cpu_usage_lock);
 
@@ -512,7 +528,6 @@ static int sysinfo_show(struct seq_file *m, void *v) {
             if (!already_seen && containerID) {
                 unsigned long vsz = 0, rss = 0, mem_usage = 0, mem_percentage = 0;
                 unsigned long disk_read_mb = 0, disk_write_mb = 0;
-                unsigned long io_read = 0, io_write = 0;
 
                 if (task->mm) {
                     vsz = task->mm->total_vm << (PAGE_SHIFT - 10); // In KB, then MB
@@ -524,23 +539,17 @@ static int sysinfo_show(struct seq_file *m, void *v) {
 
                 mem_usage = get_memory_usage(containerID);
 
-                unsigned long cpu_usage_us = get_cpu_usage_container(containerID);
-                unsigned long total_system_us = jiffies_to_usecs(jiffies); // Total system uptime in microseconds
-                unsigned long total_cpu_time_us = total_system_us; // Total available CPU time across all cores
-                unsigned long cpu_percentage;
-            
-                if (total_cpu_time_us > 0) {
-                    cpu_percentage = (cpu_usage_us * 10000) / total_cpu_time_us; // Scale to 2 decimal places
-                } else {
-                    cpu_percentage = 0;
-                }
+                unsigned long cpu_usage_1 = get_cpu_usage_container(containerID);
+                unsigned long total_system_1 = get_jiffies_64();
+                msleep(100);
+                unsigned long cpu_usage_2 = get_cpu_usage_container(containerID);
+                unsigned long total_system_2 = get_jiffies_64();
+                unsigned long cpu_percentage = ((cpu_usage_2 - cpu_usage_1) / (total_system_2-total_system_1));
 
                 cmdline = get_process_cmdline(task);
 
-                unsigned long read_mb, write_mb;
-                get_io_stats(containerID, &read_mb, &write_mb);
-                io_read = task->ioac.read_bytes;
-                io_write = task->ioac.write_bytes;
+                unsigned long read_mb, write_mb, io_read_ops, io_write_ops;
+                get_io_stats(containerID, &read_mb, &write_mb, &io_read_ops, &io_write_ops);
 
                 if (!first_process) {
                     seq_printf(m, ",\n");
@@ -551,15 +560,17 @@ static int sysinfo_show(struct seq_file *m, void *v) {
                 seq_printf(m, "    {\n");
                 seq_printf(m, "      \"PID\": %d,\n", task->pid);
                 seq_printf(m, "      \"Name\": \"%s\",\n", task->comm);
-                seq_printf(m, "      \"ContainerID\": \"%s\",\n", containerID ? containerID : "N/A");
+                seq_printf(m, "      \"ContainerID\": \"%.12s\",\n", containerID ? containerID : "N/A");
                 seq_printf(m, "      \"Cmdline\": \"%s\",\n", cmdline ? cmdline : "N/A");
-                seq_printf(m, "      \"MemoryUsage\": %lu.%02lu,\n", mem_percentage / 100, mem_percentage % 100);
-                seq_printf(m, "      \"MEMORY\": %lu,\n", mem_usage);
-                seq_printf(m, "      \"CPUUsage\": %lu.%02lu,\n", cpu_percentage / 100, cpu_percentage % 100);
-                seq_printf(m, "      \"DiskReadMB\": %lu,\n", read_mb);
-                seq_printf(m, "      \"DiskWriteMB\": %lu,\n", write_mb);
-                seq_printf(m, "      \"IORead\": %lu,\n", io_read);
-                seq_printf(m, "      \"IOWrite\": %lu\n", io_write);
+                seq_printf(m, "      \"MemoryUsage_percent\": %lu.%02lu,\n", mem_percentage / 100, mem_percentage % 100);
+                seq_printf(m, "      \"MemoryUsage_MB\": %lu,\n", mem_usage);
+                seq_printf(m, "      \"CPUUsage_percent\": %lu.%02lu,\n", cpu_percentage / 10, cpu_percentage % 10);
+                seq_printf(m, "      \"DiskUse_MB\": %lu,\n", (write_mb / 1024) + (read_mb / 1024));
+                seq_printf(m, "      \"Write_KBytes\": %lu,\n", write_mb);
+                seq_printf(m, "      \"Read_KBytes\": %lu,\n", read_mb);
+                seq_printf(m, "      \"IOReadOps\": %lu,\n", io_read_ops);
+                seq_printf(m, "      \"IOWriteOps\": %lu\n", io_write_ops);
+                
                 seq_printf(m, "    }");
 
                 // Store the container ID to avoid duplicates
