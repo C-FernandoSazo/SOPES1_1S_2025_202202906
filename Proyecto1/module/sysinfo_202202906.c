@@ -19,12 +19,8 @@
 #include <linux/cgroup.h>
 #include <linux/string.h>
 #include <linux/time.h>
-#include <linux/mutex.h>
 #include <linux/list.h>
 #include <linux/delay.h>
-
-static LIST_HEAD(cpu_usage_list); // Global list to track usage data
-static DEFINE_MUTEX(cpu_usage_lock); // Mutex for thread safety
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("202202906");
@@ -35,15 +31,6 @@ MODULE_VERSION("1.0");
 #define MAX_CMDLINE_LENGTH 256
 #define CONTAINER_ID_LENGTH 12
 #define CONTAINER_PREFIX "stress_"
-
-struct cpu_usage_data {
-    char container_id[65]; // Max Docker container ID length + 1
-    unsigned long last_usage_usec;
-    unsigned long last_rbytes;
-    unsigned long last_wbytes;
-    ktime_t last_timestamp;
-    struct list_head list;
-};
 
 // Función para obtener la línea de comandos de un proceso
 static char *get_process_cmdline(struct task_struct *task) {
@@ -247,9 +234,7 @@ static unsigned long get_memory_usage(const char *container_id) {
     free_path:
         kfree(path);
 
-        // Convert to MB if desired (optional)
-        // mem_usage = mem_usage / (1024 * 1024); // Uncomment to convert to MB
-
+    // Se convierte en MB
     return mem_usage / (1024 * 1024) ;
 }
 
@@ -347,9 +332,6 @@ static void get_io_stats(const char *container_id, unsigned long *read_mb, unsig
     char *line, *value_start, *end;
     unsigned long current_rbytes = 0, current_wbytes = 0, current_readops = 0, current_writeops = 0;
     int ret;
-    struct cpu_usage_data *data = NULL;
-    ktime_t now = ktime_get();
-    unsigned long elapsed_us, read_diff, write_diff;
 
     *read_mb = 0;
     *write_mb = 0;
@@ -451,35 +433,10 @@ static void get_io_stats(const char *container_id, unsigned long *read_mb, unsig
 
     filp_close(filp, NULL);
 
-    // Lock to safely access the list
-    mutex_lock(&cpu_usage_lock);
-
-    // Find or create usage data for this container
-    list_for_each_entry(data, &cpu_usage_list, list) {
-        if (strcmp(data->container_id, container_id) == 0) {
-            break;
-        }
-    }
-    if (!data) {
-        data = kmalloc(sizeof(*data), GFP_KERNEL);
-        if (data) {
-            strncpy(data->container_id, container_id, sizeof(data->container_id) - 1);
-            data->container_id[sizeof(data->container_id) - 1] = '\0';
-            data->last_usage_usec = 0;
-            data->last_rbytes = 0;
-            data->last_wbytes = 0;
-            data->last_timestamp = ktime_set(0, 0);
-            INIT_LIST_HEAD(&data->list);
-            list_add(&data->list, &cpu_usage_list);
-        }
-    }
-
     *read_mb = current_rbytes / 1024;
     *write_mb = current_wbytes / 1024;
     *io_read_ops = current_readops;
     *io_write_ops = current_writeops;
-
-    mutex_unlock(&cpu_usage_lock);
 
     free_buf:
         kfree(buf);

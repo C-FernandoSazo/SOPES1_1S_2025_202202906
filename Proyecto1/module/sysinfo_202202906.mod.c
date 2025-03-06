@@ -93,14 +93,8 @@ __used __section("__versions") =
 	"access_process_vm\0\0\0"
 	"\x10\x00\x00\x00\xc8\xf7\x9f\x32"
 	"mmput\0\0\0"
-	"\x14\x00\x00\x00\x65\x93\x3f\xb4"
-	"ktime_get\0\0\0"
 	"\x10\x00\x00\x00\x85\xba\x9c\x34"
 	"strchr\0\0"
-	"\x14\x00\x00\x00\x4b\x8d\xfa\x4d"
-	"mutex_lock\0\0"
-	"\x18\x00\x00\x00\x38\xf0\x13\x32"
-	"mutex_unlock\0\0\0\0"
 	"\x1c\x00\x00\x00\x27\x56\xb6\x2a"
 	"remove_proc_entry\0\0\0"
 	"\x14\x00\x00\x00\x0e\xd8\xd5\xd9"
@@ -122,4 +116,4 @@ __used __section("__versions") =
 MODULE_INFO(depends, "");
 
 
-MODULE_INFO(srcversion, "466498A489CE99AA087BD67");
+MODULE_INFO(srcversion, "324A46F1F47FBD77AC1B93A");
