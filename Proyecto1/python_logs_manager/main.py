@@ -8,8 +8,6 @@ from pydantic import BaseModel
 import time
 from dateutil import parser  # Agregar importación
 
-
-
 app = FastAPI()
 
 # 📂 Archivo JSON donde se guardarán los logs
