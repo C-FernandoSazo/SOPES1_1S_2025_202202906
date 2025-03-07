@@ -9,7 +9,7 @@ OPTIONS=(
 )
 
 # Crear 10 contenedores con nombres únicos usando /dev/urandom
-for i in {1..5}; do
+for i in {1..10}; do
     # Seleccionar un tipo de contenedor aleatoriamente
     RANDOM_INDEX=$((RANDOM % 4))
     OPTION="${OPTIONS[$RANDOM_INDEX]}"
