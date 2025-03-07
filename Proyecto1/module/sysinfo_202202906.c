@@ -235,8 +235,101 @@ static unsigned long get_memory_usage(const char *container_id) {
         kfree(path);
 
     // Se convierte en MB
-    return mem_usage / (1024 * 1024) ;
+    return mem_usage / 1024 ;
 }
+
+static void get_memory_stats(const char *container_id, unsigned long *anon, unsigned long *k_stack) {
+    char *path = NULL;
+    struct file *filp = NULL;
+    char *buf = NULL;
+    loff_t pos = 0;
+    ssize_t bytes_read;
+    char *line, *value_start, *end;
+    unsigned long current_anon = 0, current_kstack = 0;
+    int ret;
+
+    *anon = 0;
+    *k_stack = 0;
+
+    // Allocate memory for the path
+    path = kmalloc(PATH_MAX, GFP_KERNEL);
+    if (!path) {
+        printk(KERN_WARNING "Failed to allocate memory for path\n");
+        return;
+    }
+
+    // Allocate memory for the buffer
+    buf = kmalloc(512, GFP_KERNEL); // Larger buffer for memory.stat
+    if (!buf) {
+        printk(KERN_WARNING "Failed to allocate memory for buffer\n");
+        goto free_path;
+    }
+
+    // Construct the path to the memory.stat file
+    snprintf(path, PATH_MAX, "/sys/fs/cgroup/system.slice/docker-%s.scope/memory.stat", container_id);
+
+    // Open the file
+    filp = filp_open(path, O_RDONLY, 0);
+    if (IS_ERR(filp)) {
+        printk(KERN_WARNING "Failed to open %s: %ld\n", path, PTR_ERR(filp));
+        goto free_buf;
+    }
+
+    // Read the entire file content
+    bytes_read = kernel_read(filp, buf, 511, &pos);
+    if (bytes_read > 0) {
+        buf[bytes_read] = '\0';
+
+        // Parse the file
+        line = buf;
+        while (line && *line) {
+            if ((value_start = strstr(line, "kernel ")) != NULL) {
+                value_start += strlen("kernel ");
+                end = value_start;
+                while (*end && *end != ' ' && *end != '\n') end++;
+                if (end > value_start) {
+                    char temp[32];
+                    size_t len = end - value_start;
+                    if (len >= sizeof(temp)) len = sizeof(temp) - 1;
+                    strncpy(temp, value_start, len);
+                    temp[len] = '\0';
+                    ret = kstrtoul(temp, 10, &current_anon);
+                    if (ret < 0) current_anon = 0;
+                }
+            }
+            if ((value_start = strstr(line, "kernel_stack ")) != NULL) {
+                value_start += strlen("kernel_stack ");
+                end = value_start;
+                while (*end && *end != ' ' && *end != '\n') end++;
+                if (end > value_start) {
+                    char temp[32];
+                    size_t len = end - value_start;
+                    if (len >= sizeof(temp)) len = sizeof(temp) - 1;
+                    strncpy(temp, value_start, len);
+                    temp[len] = '\0';
+                    ret = kstrtoul(temp, 10, &current_kstack);
+                    if (ret < 0) current_kstack = 0;
+                    break;
+                }
+            }
+            line = strstr(line, "\n");
+            if (line) line++;
+        }
+    } else {
+        printk(KERN_WARNING "Failed to read from %s\n", path);
+    }
+
+    filp_close(filp, NULL);
+
+    *anon = current_anon / 1024;
+    *k_stack = current_kstack / 1024;
+
+    free_buf:
+        kfree(buf);
+    free_path:
+        kfree(path);
+}
+
 
 static unsigned long get_cpu_usage_container(const char *container_id) {
     char *path = NULL;
@@ -447,7 +540,6 @@ static void get_io_stats(const char *container_id, unsigned long *read_mb, unsig
 static int sysinfo_show(struct seq_file *m, void *v) {
     struct sysinfo si;
     struct task_struct *task;
-    unsigned long total_jiffies = jiffies;
     int first_process = 1;
     unsigned long cpu_usage_total;
     char *seen_containers[150] = {0}; // Simple array to track seen container IDs
@@ -483,18 +575,11 @@ static int sysinfo_show(struct seq_file *m, void *v) {
             }
 
             if (!already_seen && containerID) {
-                unsigned long vsz = 0, rss = 0, mem_usage = 0, mem_percentage = 0;
+                unsigned long mem_usage = 0, mem_percentage = 0;
                 unsigned long disk_read_mb = 0, disk_write_mb = 0;
 
-                if (task->mm) {
-                    vsz = task->mm->total_vm << (PAGE_SHIFT - 10); // In KB, then MB
-                    rss = get_mm_rss(task->mm) << (PAGE_SHIFT - 10); // In KB, then MB
-                    mem_usage = get_memory_usage(containerID); // In MB from cgroup
-                    unsigned long total_memory_mb = si.totalram * 4 / 1024; // Total RAM in MB
-                    mem_percentage = (mem_usage * 10000) / total_memory_mb;
-                }
-
-                mem_usage = get_memory_usage(containerID);
+                unsigned long anon, kernel_stack;
+                get_memory_stats(containerID, &anon, &kernel_stack);
 
                 unsigned long cpu_usage_1 = get_cpu_usage_container(containerID);
                 unsigned long total_system_1 = get_jiffies_64();
@@ -505,8 +590,27 @@ static int sysinfo_show(struct seq_file *m, void *v) {
 
                 cmdline = get_process_cmdline(task);
 
+                unsigned long total_memory_mb = si.totalram * 4 / 1024; // Total RAM in MB
+                mem_usage = get_memory_usage(containerID);
+
+                if (cmdline && strstr(cmdline, "--hdd")) {
+                    mem_usage = anon + kernel_stack;
+                    mem_percentage = ( (mem_usage / 1024) * 10000) / total_memory_mb;
+                } else {
+                    mem_percentage = ( (mem_usage / 1024) * 10000) / total_memory_mb;
+                }
+
                 unsigned long read_mb, write_mb, io_read_ops, io_write_ops;
                 get_io_stats(containerID, &read_mb, &write_mb, &io_read_ops, &io_write_ops);
+
+                // Calcular MemoryUsage_MB con decimales
+                unsigned long mem_usage_mb_whole = mem_usage / 1024; // Parte entera (MB)
+                unsigned long mem_usage_mb_frac = ((mem_usage % 1024) * 100) / 1024; // Parte fraccional (2 dígitos)
+
+                // Calcular DiskUse_MB con decimales
+                unsigned long disk_usage_kb = write_mb + read_mb; // Total en KB
+                unsigned long disk_usage_mb_whole = disk_usage_kb / 1024; // Parte entera (MB)
+                unsigned long disk_usage_mb_frac = ((disk_usage_kb % 1024) * 100) / 1024; // Parte fraccional (2 dígitos)
 
                 if (!first_process) {
                     seq_printf(m, ",\n");
@@ -520,9 +624,9 @@ static int sysinfo_show(struct seq_file *m, void *v) {
                 seq_printf(m, "      \"ContainerID\": \"%.12s\",\n", containerID ? containerID : "N/A");
                 seq_printf(m, "      \"Cmdline\": \"%s\",\n", cmdline ? cmdline : "N/A");
                 seq_printf(m, "      \"MemoryUsage_percent\": %lu.%02lu,\n", mem_percentage / 100, mem_percentage % 100);
-                seq_printf(m, "      \"MemoryUsage_MB\": %lu,\n", mem_usage);
+                seq_printf(m, "      \"MemoryUsage_MB\": %lu.%02lu,\n", mem_usage_mb_whole, mem_usage_mb_frac);
                 seq_printf(m, "      \"CPUUsage_percent\": %lu.%02lu,\n", cpu_percentage / 10, cpu_percentage % 10);
-                seq_printf(m, "      \"DiskUse_MB\": %lu,\n", (write_mb / 1024) + (read_mb / 1024));
+                seq_printf(m, "      \"DiskUse_MB\": %lu.%02lu,\n", disk_usage_mb_whole, disk_usage_mb_frac);
                 seq_printf(m, "      \"Write_KBytes\": %lu,\n", write_mb);
                 seq_printf(m, "      \"Read_KBytes\": %lu,\n", read_mb);
                 seq_printf(m, "      \"IOReadOps\": %lu,\n", io_read_ops);

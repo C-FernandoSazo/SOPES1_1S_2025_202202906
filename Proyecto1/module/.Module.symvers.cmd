@@ -1,1 +1,0 @@
-savedcmd_/home/onlfer/Documentos/Programas/2025/SOPES1_1S_2025_202202906/Proyecto1/module/Module.symvers :=  scripts/mod/modpost -M -m -a      -o /home/onlfer/Documentos/Programas/2025/SOPES1_1S_2025_202202906/Proyecto1/module/Module.symvers -T /home/onlfer/Documentos/Programas/2025/SOPES1_1S_2025_202202906/Proyecto1/module/modules.order -i Module.symvers -e 
