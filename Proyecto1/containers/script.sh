@@ -5,11 +5,11 @@ OPTIONS=(
     "--cpu 1"       # CPU
     "--io 1"        # I/O
     "--vm 2 --vm-bytes 256M"  # RAM
-    "--hdd 1 --hdd-bytes 1G"  # Disco
+    "--hdd 1 "  # Disco
 )
 
 # Crear 10 contenedores con nombres únicos usando /dev/urandom
-for i in {1..8}; do
+for i in {1..10}; do
     # Seleccionar un tipo de contenedor aleatoriamente
     RANDOM_INDEX=$((RANDOM % 4))
     OPTION="${OPTIONS[$RANDOM_INDEX]}"
