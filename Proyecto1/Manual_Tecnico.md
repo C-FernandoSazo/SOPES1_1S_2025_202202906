@@ -424,14 +424,35 @@ El contenedor de logs interactúa estrechamente con el servicio en Rust, que act
 - **Estructura**: El archivo contiene un arreglo de objetos `LogEntry`, cada uno con un campo `timestamp` (formato RFC3339) y `sysinfo` (diccionario con métricas del módulo kernel).
 
 ## Generación de Gráficas con Matplotlib
+
 - **Proceso**:
-  1. La función `show_live_graphs` lee `logs.json` y extrae `timestamps`, `CPU_Usage_Percentage` y `Used_Memory_MB`.
-  2. Crea dos gráficas con Matplotlib:
-     - **Uso de CPU**: Línea roja con marcadores, mostrando el porcentaje de CPU a lo largo del tiempo.
-     - **Uso de Memoria**: Línea azul con marcadores, mostrando el uso de memoria en MB.
-  3. Guarda las gráficas como `cpu_usage.png` y `memory_usage.png` en `/app/logs`, actualizándolas cada 5 segundos en modo en vivo.
-- **Activación**: La petición `/generate_graphs` inicia este proceso manualmente al final del servicio Rust, mientras que `/show_graphs` lo ejecuta en un hilo continuo.
-- **Visualización**: Las imágenes generadas son accesibles desde el volumen compartido, permitiendo su uso externo (e.g., visualización en un navegador o análisis adicional).
+  1. La función `show_live_graphs` gestiona la generación de dos tipos de gráficas en tiempo real:
+     - **Gráfica del Sistema (`system_metrics.png`)**:
+       - Lee los datos actuales del sistema almacenados en la variable global `system_data`, que se actualiza con cada nuevo log recibido en el endpoint `/logs`.
+       - Extrae `timestamps`, `Free_Memory_MB`, `Used_Memory_MB` y `CPU_Usage_Percentage`.
+       - Crea dos subgráficas:
+         - **Uso de Memoria**: Una gráfica de dona con el último valor de `Free_Memory_MB` (verde) y `Used_Memory_MB` (azul), mostrando los valores en MB debajo (ej. "Libre: 2048 MB", "Usada: 1024 MB").
+         - **Uso de CPU**: Una línea roja con marcadores, mostrando el porcentaje de CPU a lo largo del tiempo para la ejecución actual del servidor.
+       - Guarda la gráfica como `system_metrics.png` en `/app/logs`.
+     - **Gráfica de Contenedores (`containers_metrics.png`)**:
+       - Lee los datos actuales de los contenedores almacenados en la variable global `data_by_category`, que también se actualiza con cada nuevo log recibido.
+       - Para cada categoría (`cpu`, `ram`, `io`, `disk`), genera cuatro columnas:
+         - **RAM %**: Línea rosa claro con marcadores, mostrando el porcentaje de uso de memoria (`MemoryUsage_percent`) con 2 decimales.
+         - **CPU %**: Línea azul claro con marcadores, mostrando el porcentaje de uso de CPU (`CPUUsage_percent`) con 1 decimal.
+         - **Disco**: Dona con `Write_KBytes` (rosa fuerte) y `Read_KBytes` (morado), mostrando valores crudos y porcentajes debajo (ej. "Escritura: 200 KB (40.0%)", "Lectura: 300 KB (60.0%)").
+         - **Operaciones IO**: Barras separadas para `IOReadOps` (naranja claro) y `IOWriteOps` (amarillo), con valores en la leyenda.
+       - Guarda la gráfica como `containers_metrics.png` en `/app/logs`.
+  2. Ambas gráficas se actualizan cada 5 segundos en modo en vivo mientras el servidor está activo.
+
+- **Activación**:
+  - **Automática**: Al iniciar el servidor, el evento `@app.on_event("startup")` lanza un hilo continuo con `show_live_graphs`, reiniciando las variables globales `system_data` y `data_by_category` para comenzar con datos frescos en cada ejecución.
+  - **Manual**:
+    - La petición `GET /generate_graphs` (a implementar) ejecutará el proceso de generación de gráficas manualmente una vez, útil para el final del servicio Rust.
+    - La petición `GET /show_graphs` (a implementar) iniciará o reiniciará el hilo continuo de `show_live_graphs`, permitiendo control externo sobre la actualización en vivo.
+
+- **Visualización**:
+  - Las imágenes generadas (`system_metrics.png` y `containers_metrics.png`) se almacenan en el directorio `/app/logs`, accesible desde un volumen compartido.
+  - Esto permite su uso externo, como visualización en un navegador, integración en dashboards, o análisis adicional.
 
 ## Ejecución del Contenedor
 
@@ -452,12 +473,12 @@ El contenedor de logs interactúa estrechamente con el servicio en Rust, que act
 
 El **Gestor de Contenedores** desarrollado en este proyecto es un sistema integral que combina diversas tecnologías para lograr la creación, monitoreo y administración eficiente de contenedores Docker. A través de la implementación de **Bash, Rust, Python y un módulo del Kernel en C**, se consigue un flujo automatizado y estructurado que permite:  
 
-✅ **Automatización de Contenedores**: Un **script en Bash** gestiona la creación y ejecución de contenedores Docker, garantizando una carga de trabajo equilibrada para distintos recursos del sistema.  
+**Automatización de Contenedores**: Un **script en Bash** gestiona la creación y ejecución de contenedores Docker, garantizando una carga de trabajo equilibrada para distintos recursos del sistema.  
 
-✅ **Monitoreo en Bajo Nivel**: Un **módulo del Kernel en C** interactúa directamente con Linux para obtener métricas en tiempo real sobre memoria, CPU y operaciones de I/O de los contenedores activos.  
+**Monitoreo en Bajo Nivel**: Un **módulo del Kernel en C** interactúa directamente con Linux para obtener métricas en tiempo real sobre memoria, CPU y operaciones de I/O de los contenedores activos.  
 
-✅ **Orquestación Inteligente**: Un **servicio en Rust** actúa como el núcleo del proyecto, procesando las métricas del Kernel, decidiendo la eliminación de contenedores según su uso y asegurando que la ejecución del sistema sea eficiente.  
+**Orquestación Inteligente**: Un **servicio en Rust** actúa como el núcleo del proyecto, procesando las métricas del Kernel, decidiendo la eliminación de contenedores según su uso y asegurando que la ejecución del sistema sea eficiente.  
 
-✅ **Gestión y Visualización de Datos**: Un **contenedor administrador de logs en Python**, basado en FastAPI, almacena y procesa los datos recibidos, permitiendo la visualización en tiempo real de métricas mediante gráficas generadas con `matplotlib`.  
+**Gestión y Visualización de Datos**: Un **contenedor administrador de logs en Python**, basado en FastAPI, almacena y procesa los datos recibidos, permitiendo la visualización en tiempo real de métricas mediante gráficas generadas con `matplotlib`.  
 
 Gracias a esta arquitectura modular y escalable, el proyecto proporciona un sistema eficiente para la administración de contenedores en entornos de alto rendimiento. La combinación de tecnologías de **bajo y alto nivel** permite una integración fluida entre la supervisión de hardware, la automatización de despliegue y el análisis de datos, logrando un equilibrio entre rendimiento y usabilidad.
