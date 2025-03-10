@@ -220,7 +220,7 @@ def show_live_graphs():
                 ]
 
                 x_io = np.arange(len(io_labels))
-                io_bars = ax_io.bar(x_io, io_values, color=io_colors, width=bar_width)
+                io_bars = ax_io.bar(x_io, io_values, color=io_colors, width=0.25)
                 ax_io.set_title("Operaciones IO")
                 ax_io.set_xticks(x_io)
                 ax_io.set_xticklabels(io_labels, rotation=45, ha='right')
