@@ -12,8 +12,6 @@ RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
 VOLUME /app/logs
 RUN mkdir -p /app/logs && \
-    touch /app/logs/cpu_usage.png && \
-    touch /app/logs/memory_usage.png && \
     touch /app/logs/logs.json
 
 # 
