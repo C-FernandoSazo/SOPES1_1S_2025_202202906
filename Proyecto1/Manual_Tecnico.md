@@ -292,9 +292,9 @@ El servicio de logs, ejecutado en el contenedor `logs_managerr` (basado en `pyth
 2. **Ejecución del Servicio**
    ```sh
    # Modo debug
-   sudo cargo run
+   cargo run
    # Modo release
-   sudo ./target/release/nombre_del_proyecto
+   ./target/release/nombre_del_proyecto
    ```
 
 ### Ejemplo de ejecución

@@ -8,8 +8,11 @@ use signal_hook::flag;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::collections::HashMap;
+use std::io::Error;
 use chrono::{Utc, SecondsFormat};
 use prettytable::{Table, row};
+use std::thread::JoinHandle;
+use tokio;
 
 // Updated structure for kernel data
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -165,15 +168,15 @@ async fn manage_containers(docker: &Docker, containers: &[ContainerInfo]) {
 
     let latest_containers = classify_containers(containers);
     let required_categories = ["cpu", "ram", "io", "disk"];
-    let mut removed_containers: Vec<(&ContainerInfo, String)> = Vec::new(); // Store (container, category) pairs
+    let mut removal_tasks: Vec<tokio::task::JoinHandle<(ContainerInfo, String)>> = Vec::new();
+    let mut removed_containers: Vec<(ContainerInfo, String)> = Vec::new();
 
-    // Step 1: Display containers by category in tables
+    // Step 1: Display containers
     println!("\n[INFO] Contenedores por categoría:");
     for category in required_categories.iter().chain(std::iter::once(&"unknown")) {
         if let Some(containers_in_category) = latest_containers.get(category) {
             let mut table = Table::new();
             table.add_row(row!["PID", "Nombre", "Container ID", "CPU %", "RAM %", "RAM MB", "Disk MB", "IO Read Ops", "IO Write Ops"]);
-            
             for container in containers_in_category {
                 table.add_row(row![
                     container.PID,
@@ -187,51 +190,109 @@ async fn manage_containers(docker: &Docker, containers: &[ContainerInfo]) {
                     container.IOWriteOps,
                 ]);
             }
-            
             println!("{}:", category.to_uppercase());
             table.printstd();
-            println!(); // Extra newline for readability
+            println!();
         }
     }
 
-    // Step 2: Manage containers and log removals
+    // Step 2: Manage containers using Tokio tasks
     for category in required_categories {
         if let Some(containers_in_category) = latest_containers.get(category) {
             let mut sorted_containers = containers_in_category.clone();
-            sorted_containers.sort_by(|a, b| b.PID.cmp(&a.PID)); // Sort by PID descending (newest first)
+            sorted_containers.sort_by(|a, b| b.PID.cmp(&a.PID));
 
             if sorted_containers.len() > 1 {
                 for old_container in sorted_containers.iter().skip(1) {
-                    println!("\n[INFO] Eliminando contenedor antiguo: {} (ID: {})", old_container.Name, old_container.ContainerID);
-                    match docker.remove_container(&old_container.ContainerID, Some(RemoveContainerOptions {
-                        force: true,
-                        ..Default::default()
-                    })).await {
-                        Ok(_) => {
-                            println!("\n[DEBUG] Contenedor {} eliminado con éxito", old_container.ContainerID);
-                            removed_containers.push((old_container, category.to_string()));
+                    let container_id = old_container.ContainerID.clone();
+                    let container_name = old_container.Name.clone();
+                    let container_pid = old_container.PID;
+                    let category_str = category.to_string();
+                    let docker_clone = docker.clone();
+
+                    println!("\n[INFO] Iniciando eliminación en tarea para contenedor: {} (ID: {})", 
+                            container_name, container_id);
+
+                    let task = tokio::spawn(async move {
+                        match docker_clone.remove_container(
+                            &container_id,
+                            Some(RemoveContainerOptions {
+                                force: true,
+                                ..Default::default()
+                            })
+                        ).await {
+                            Ok(_) => {
+                                println!("\n[DEBUG] Contenedor {} eliminado con éxito en tarea", container_id);
+                                let container_info = ContainerInfo {
+                                    PID: container_pid,
+                                    Name: container_name.clone(),
+                                    ContainerID: container_id.clone(),
+                                    Cmdline: String::new(),
+                                    MemoryUsage_percent: 0.0,
+                                    MemoryUsage_MB: 0.0,
+                                    CPUUsage_percent: 0.0,
+                                    DiskUse_MB: 0.0,
+                                    Write_KBytes: 0,
+                                    Read_KBytes: 0,
+                                    IOReadOps: 0,
+                                    IOWriteOps: 0,
+                                };
+                                (container_info, category_str)
+                            }
+                            Err(e) => {
+                                println!("\n[ERROR] Error al eliminar contenedor {} en tarea: {:?}", 
+                                        container_id, e);
+                                let container_info = ContainerInfo {
+                                    PID: container_pid,
+                                    Name: container_name,
+                                    ContainerID: container_id,
+                                    Cmdline: String::new(),
+                                    MemoryUsage_percent: 0.0,
+                                    MemoryUsage_MB: 0.0,
+                                    CPUUsage_percent: 0.0,
+                                    DiskUse_MB: 0.0,
+                                    Write_KBytes: 0,
+                                    Read_KBytes: 0,
+                                    IOReadOps: 0,
+                                    IOWriteOps: 0,
+                                };
+                                (container_info, "error".to_string())
+                            }
                         }
-                        Err(e) => println!("\n[ERROR] Error al eliminar contenedor {}: {:?}", old_container.ContainerID, e),
-                    }
+                    });
+
+                    removal_tasks.push(task);
                 }
             }
         }
     }
 
-    // Step 3: Display table of removed containers
+    // Step 3: Collect results from tasks
+    for task in removal_tasks {
+        match task.await {  // task.await returns Result<(ContainerInfo, String), JoinError>
+            Ok((container, category)) => {  // Directly match the inner tuple
+                if category != "error" {
+                    removed_containers.push((container, category));
+                }
+            }
+            Err(e) => {
+                println!("\n[ERROR] Error al esperar la tarea de eliminación: {:?}", e);
+            }
+        }
+    }
+
+    // Step 4: Display table
     if !removed_containers.is_empty() {
         println!("\n[INFO] Contenedores eliminados:");
         let mut table = Table::new();
-        table.add_row(row!["Container ID", "Categoría", "PID"]); // Add PID as a relevant field
-
+        table.add_row(row!["Container ID", "Categoría", "PID"]);
         for (container, category) in &removed_containers {
             table.add_row(row![
-                container.ContainerID,
+                &container.ContainerID,
                 category,
                 container.PID,
             ]);
         }
-
         table.printstd();
     } else {
         println!("\n[INFO] No se eliminaron contenedores.");
@@ -260,21 +321,38 @@ fn print_containers(containers: &[ContainerInfo]) {
     table.printstd();
 }
 
-fn remove_cronjob() {
+fn remove_cronjob() -> Result<(), Error> {
     println!("[INFO] Eliminando cronjob...");
-    let _ = Command::new("crontab").arg("-l")
-        .output()
-        .map(|output| {
-            let new_cron = String::from_utf8_lossy(&output.stdout)
-                .lines()
-                .filter(|line| !line.contains("docker run"))
-                .collect::<Vec<_>>()
-                .join("\n");
-
-            let _ = fs::write("/tmp/new_crontab", new_cron);
-            let _ = Command::new("crontab").arg("/tmp/new_crontab").output();
-            let _ = fs::remove_file("/tmp/new_crontab");
-        });
+    
+    // Obtener el crontab actual
+    let output = Command::new("crontab")
+        .arg("-l")
+        .output()?;
+    
+    // Convertir la salida a String y filtrar las líneas específicas
+    let new_cron = String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter(|line| {
+            // Filtrar líneas que contengan la ruta específica de tu cronjob
+            !line.contains("/home/onlfer/Documentos/Programas/2025/SOPES1_1S_2025_202202906/Proyecto1/containers/script.sh")
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    
+    // Escribir el nuevo crontab a un archivo temporal
+    let temp_file = "/tmp/new_crontab";
+    fs::write(temp_file, new_cron)?;
+    
+    // Actualizar el crontab
+    Command::new("crontab")
+        .arg(temp_file)
+        .output()?;
+    
+    // Eliminar el archivo temporal
+    fs::remove_file(temp_file)?;
+    
+    println!("[INFO] Cronjob eliminado exitosamente");
+    Ok(())
 }
 
 #[tokio::main]
