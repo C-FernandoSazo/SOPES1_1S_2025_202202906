@@ -275,7 +275,7 @@ El servicio interactúa directamente con el módulo kernel `sysinfo_202202906` p
 - **Dependencia**: El servicio depende de que el módulo kernel esté cargado y actualizado, ya que las métricas se generan dinámicamente al leer el archivo `/proc`.
 
 ## Interacción con el Servicio de Logs en Python
-El servicio de logs, ejecutado en el contenedor `logs_managerr` (basado en `python:3.9` con un servidor HTTP), es responsable de recibir, almacenar y procesar los logs enviados por el servicio Rust:
+El servicio de logs, ejecutado en el contenedor `logs_manager` (basado en `python:3.8` con un servidor HTTP), es responsable de recibir, almacenar y procesar los logs enviados por el servicio Rust:
 - **Recepción de Logs**: El servicio Rust envía peticiones HTTP POST a `http://localhost:5000/logs` con datos serializados como `LogEntry` (conteniendo marca de tiempo y `SysInfo`).
 - **Generación de Gráficas**: Al finalizar, el servicio Rust realiza una petición GET a `http://localhost:5000/generate_graphs` para que el servicio de logs genere visualizaciones basadas en los datos recolectados.
 - **Visualización en Vivo**: Otra petición GET a `http://localhost:5000/show_graphs` permite mostrar gráficos en tiempo real, asumiendo que el servicio Python implementa esta funcionalidad.
@@ -294,17 +294,14 @@ El servicio de logs, ejecutado en el contenedor `logs_managerr` (basado en `pyth
    # Modo debug
    cargo run
    # Modo release
-   ./target/release/nombre_del_proyecto
+   ./target/release/container_manager
    ```
 
 ### Ejemplo de ejecución
 ```bash
-sudo target/release/container_manager
+target/release/container_manager
 
 [INFO] Iniciando servicio de gestión de contenedores...
-[INFO] Creando contenedor administrador de logs...
-[INFO] Contenedor creado exitosamente.
-[INFO] Contenedor iniciado correctamente.
 
 [INFO] Información del sistema:
 Memoria Total: 31874 MB
@@ -404,7 +401,7 @@ El contenedor de logs interactúa estrechamente con el servicio en Rust, que act
 - **Volúmenes Compartidos**: Permiten la persistencia de los logs y gráficas, montando el directorio `/app/logs` en el host para acceso externo.
 
 ## Arquitectura del Contenedor
-- **Estructura**: El contenedor se basa en una imagen `python:3.9` personalizada con el archivo `main.py`. Ejecuta un servidor FastAPI que escucha en el puerto 5000, procesando solicitudes entrantes y gestionando archivos en el directorio `/app/logs`.
+- **Estructura**: El contenedor se basa en una imagen `python:3.8` personalizada con el archivo `main.py`. Ejecuta un servidor FastAPI que escucha en el puerto 5000, procesando solicitudes entrantes y gestionando archivos en el directorio `/app/logs`.
 - **Flujo de Datos**:
   1. El servicio Rust envía datos JSON a `/logs`.
   2. FastAPI los almacena en `logs.json` dentro de `/app/logs`.
@@ -458,12 +455,12 @@ El contenedor de logs interactúa estrechamente con el servicio en Rust, que act
 
 1. **Construccion del Contenedor**
    ```sh
-   docker build -t python_logs_manager .
+   docker compose build
    ```
 
 2. **Ejecución del Contenedor**
    ```sh
-   docker run -d --name python_logs_manager -p 5000:5000 -v $(pwd)/logs:/app/logs python_logs_manager
+   docker compose up -d
    ```
 
 ---
