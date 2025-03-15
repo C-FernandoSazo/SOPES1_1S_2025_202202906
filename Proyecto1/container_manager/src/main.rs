@@ -70,60 +70,6 @@ fn read_sysinfo() -> Option<SysInfo> {
     serde_json::from_str(&data).ok()
 }
 
-async fn create_logs_container(docker: &Docker) {
-    // Obtener lista de contenedores
-    let containers = match docker.list_containers(Some(ListContainersOptions::<String> {
-        all: true,
-        ..Default::default()
-    })).await {
-        Ok(containers) => containers,
-        Err(e) => {
-            eprintln!("[ERROR] No se pudo listar los contenedores: {:?}", e);
-            return;
-        }
-    };
-
-    // Verificar si el contenedor de logs ya existe
-    let log_exists = containers.iter().any(|c| {
-        c.names.as_ref()
-            .map_or(false, |names| names.iter().any(|name| name.contains(LOGS_CONTAINER)))
-    });
-
-    if log_exists {
-        println!("[INFO] El contenedor de logs ya existe. No se creará otro.");
-        return;
-    }
-
-    println!("[INFO] Creando contenedor administrador de logs...");
-    
-    let config = Config {
-        image: Some("python:3.9"),
-        cmd: Some(vec!["python", "-m", "http.server", "5000"]),
-        ..Default::default()
-    };
-
-    // Crear el contenedor
-    match docker.create_container(
-        Some(CreateContainerOptions {
-            name: LOGS_CONTAINER,
-            platform: None,
-        }),
-        config,
-    ).await {
-        Ok(_) => println!("[INFO] Contenedor creado exitosamente."),
-        Err(e) => {
-            eprintln!("[ERROR] No se pudo crear el contenedor: {:?}", e);
-            return;
-        }
-    }
-
-    // Iniciar el contenedor
-    match docker.start_container(LOGS_CONTAINER, None::<StartContainerOptions<String>>).await {
-        Ok(_) => println!("[INFO] Contenedor iniciado correctamente."),
-        Err(e) => eprintln!("[ERROR] No se pudo iniciar el contenedor: {:?}", e),
-    }
-}
-
 fn send_log(client: &Client, log_data: &SysInfo) {
     let log_entry = LogEntry {
         timestamp: Utc::now().to_rfc3339(),
@@ -364,8 +310,6 @@ async fn main() {
     let docker = Docker::connect_with_local_defaults().unwrap();
 
     println!("[INFO] Iniciando servicio de gestión de contenedores...");
-
-    create_logs_container(&docker).await;
 
     while !stop_flag.load(Ordering::Relaxed) {
         if let Some(sysinfo) = read_sysinfo() {

@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  logs_manager:
+    build:
+      context: ./python_logs_manager
+      dockerfile: Dockerfile
+    container_name: logs_manager
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./python_logs_manager/logs:/app/logs
+    restart: unless-stopped
