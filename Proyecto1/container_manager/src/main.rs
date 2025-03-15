@@ -280,7 +280,7 @@ fn remove_cronjob() -> Result<(), Error> {
         .lines()
         .filter(|line| {
             // Filtrar líneas que contengan la ruta específica de tu cronjob
-            !line.contains("/home/onlfer/Documentos/Programas/2025/SOPES1_1S_2025_202202906/Proyecto1/containers/script.sh")
+            !line.contains("/home/onlfer/SOPES1_1S_2025_202202906/Proyecto1/containers/script.sh")
         })
         .collect::<Vec<_>>()
         .join("\n");
