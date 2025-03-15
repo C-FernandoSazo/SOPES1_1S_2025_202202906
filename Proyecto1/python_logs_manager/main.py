@@ -168,7 +168,7 @@ def show_live_graphs():
                 x = np.arange(len(data_by_category[category]["timestamps"]))
                 ax_ram.plot(x, data_by_category[category]["MemoryUsage_percent"], color=ram_color, marker='o', label=f"RAM %: {data_by_category[category]['MemoryUsage_percent'][-1]:.2f}")
                 ax_ram.set_title(f"{category.upper()} - RAM %")
-                ax_ram.set_ylim(0, 210)  # Rango fijo de 0 a 210
+                ax_ram.set_ylim(0, 2)  # Rango fijo de 0 a 210
                 ax_ram.set_xticks(x)
                 ax_ram.set_xticklabels([ts.strftime('%H:%M:%S') for ts in data_by_category[category]["timestamps"]], rotation=45, ha='right')
                 ax_ram.set_ylabel("Porcentaje (%)")
