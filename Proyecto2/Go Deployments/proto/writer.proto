@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package writer;
+option go_package = "proyecto2/proto;writer";
+
+// Servicio que se encargará de publicar el mensaje en un Broker
+service WriterService {
+  rpc Publish (PublishRequest) returns (PublishResponse);
+}
+
+// Mensaje de petición
+message PublishRequest {
+  string description = 1; 
+  string country = 2;     
+  string weather = 3;     
+}
+
+// Mensaje de respuesta
+message PublishResponse {
+  bool success = 1;
+  string info = 2;
+}

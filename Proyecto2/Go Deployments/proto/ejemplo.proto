@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package salud; // Nombre de tu paquete proto
+option go_package = "proyecto2/proto;salud";
+
+// Definimos un servicio simple con un RPC unary
+service SaludoService {
+  // Envía un nombre y recibe un mensaje de saludo
+  rpc DiHola (SaludoRequest) returns (SaludoResponse);
+}
+
+// Mensajes
+message SaludoRequest {
+  string nombre = 1;
+}
+
+message SaludoResponse {
+  string mensaje = 1;
+}
