@@ -1,0 +1,36 @@
+version: "3.9"
+services:
+  # Cliente (Deployment 1)
+  client:
+    build:
+      context: .
+      dockerfile: client/dockerfile
+    ports:
+      - "8080:8080" # Expone la API REST del cliente
+    networks:
+      - app-network
+
+  # Servidor Kafka (Deployment 2)
+  kafka_writer:
+    build:
+      context: .
+      dockerfile: server/writer_kafka/dockerfile 
+    ports:
+      - "50052:50052" # Expone el puerto gRPC del servidor Kafka
+    networks:
+      - app-network
+
+  # Servidor RabbitMQ (Deployment 3)
+  rabbit_writer:
+    build:
+      context: .
+      dockerfile: server/writer_rabbit/dockerfile 
+    ports:
+      - "50051:50051" # Expone el puerto gRPC del servidor RabbitMQ
+    networks:
+      - app-network
+
+# Red para comunicación entre servicios
+networks:
+  app-network:
+    driver: bridge

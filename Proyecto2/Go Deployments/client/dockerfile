@@ -1,0 +1,21 @@
+# Etapa 1: build
+FROM golang:1.24.1 AS builder
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . ./
+
+RUN go build -o clients ./client/main.go
+
+# Etapa 2: runtime
+FROM gcr.io/distroless/base-debian12
+
+COPY --from=builder /app/clients /clients
+
+# Expone el puerto 8080 para la API REST
+EXPOSE 8080
+
+ENTRYPOINT ["/clients"]

@@ -14,8 +14,8 @@ import (
 
 var (
 	// Variables de conexión a Rabbit y Kafka:
-	rabbitAddr = "localhost:50051" // o la IP/Service real en tu cluster K8s
-	kafkaAddr  = "localhost:50052" // SE CAMBIA PORQUE ES PARA PRUEBAS LOCALES
+	rabbitAddr = "rabbit_writer:50051" // o la IP/Service real en tu cluster K8s
+	kafkaAddr  = "kafka_writer:50052"  // SE CAMBIA PORQUE ES PARA PRUEBAS LOCALES
 )
 
 // Estructura para parsear JSON del body HTTP

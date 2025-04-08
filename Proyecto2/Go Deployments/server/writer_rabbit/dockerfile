@@ -1,0 +1,22 @@
+# Etapa 1: build
+FROM golang:1.24.1 AS builder
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . ./
+
+# Compilamos el binario
+RUN go build -o rabbit_writer ./server/writer_rabbit/main.go
+
+# Etapa 2: imagen final, minimizada
+FROM gcr.io/distroless/base-debian12
+
+COPY --from=builder /app/rabbit_writer /rabbit_writer
+
+# Puerto donde escucha gRPC
+EXPOSE 50051
+
+ENTRYPOINT ["/rabbit_writer"]
