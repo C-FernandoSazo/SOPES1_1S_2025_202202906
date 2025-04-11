@@ -15,6 +15,6 @@ FROM gcr.io/distroless/base-debian12
 
 COPY --from=builder /app/kafka_writer /kafka_writer
 
-EXPOSE 50051
+EXPOSE 50052
 
 ENTRYPOINT ["/kafka_writer"]

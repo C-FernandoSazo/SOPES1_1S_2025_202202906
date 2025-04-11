@@ -13,9 +13,8 @@ import (
 )
 
 var (
-	// Variables de conexión a Rabbit y Kafka:
-	rabbitAddr = "rabbit_writer:50051" // o la IP/Service real en tu cluster K8s
-	kafkaAddr  = "kafka_writer:50052"  // SE CAMBIA PORQUE ES PARA PRUEBAS LOCALES
+	// Variable de conexión a Kafka
+	kafkaAddr = "kafka-writer:50052" // Nombre del servicio en Kubernetes
 )
 
 // Estructura para parsear JSON del body HTTP
@@ -45,13 +44,6 @@ func publicarHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Llamar a Rabbit
-	respRabbit, err := callWriterService(rabbitAddr, data)
-	if err != nil {
-		http.Error(w, "Error publicando en Rabbit: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	// Llamar a Kafka
 	respKafka, err := callWriterService(kafkaAddr, data)
 	if err != nil {
@@ -61,8 +53,7 @@ func publicarHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Responder al cliente con un JSON de estado
 	response := map[string]interface{}{
-		"rabbit": respRabbit,
-		"kafka":  respKafka,
+		"kafka": respKafka,
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)

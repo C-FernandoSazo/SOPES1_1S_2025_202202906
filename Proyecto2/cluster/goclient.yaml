@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: goclient
+  namespace: proyecto2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: goclient
+  template:
+    metadata:
+      labels:
+        app: goclient
+    spec:
+      containers:
+      - name: goclient
+        image: 34.70.50.55.nip.io/proyecto2/goclient:latest
+        ports:
+        - containerPort: 8080
+      imagePullSecrets:
+      - name: harbor-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: goclient
+  namespace: proyecto2
+spec:
+  selector:
+    app: goclient
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+  type: ClusterIP
