@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: kafka-consumer
-        image: 34.70.50.55.nip.io/proyecto2/kafka-consumer
+        image: 34.70.50.55.nip.io/proyecto2/kafka-consumer:latest
         resources:
           requests:
             memory: "64Mi"

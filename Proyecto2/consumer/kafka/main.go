@@ -3,9 +3,13 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
+	"strings"
 	"sync"
+	"time"
 
+	"github.com/redis/go-redis/v9"
 	"github.com/segmentio/kafka-go"
 )
 
@@ -16,7 +20,17 @@ type ClimaMessage struct {
 }
 
 func main() {
-	// Configurar lector Kafka con GroupID para balanceo entre réplicas
+	// Configurar cliente Redis
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: "redis.proyecto2.svc.cluster.local:6379", // Servicio de Redis en el namespace
+	})
+	ctx := context.Background()
+	if err := redisClient.Ping(ctx).Err(); err != nil {
+		log.Fatalf("Error conectando a Redis: %v", err)
+	}
+	log.Println("Conectado a Redis")
+
+	// Configurar lector Kafka con GroupID para balanceo
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:  []string{"my-cluster-kafka-bootstrap.proyecto2.svc.cluster.local:9092"},
 		Topic:    "clima-topic",
@@ -40,13 +54,12 @@ func main() {
 		go func(workerID int) {
 			defer wg.Done()
 			for msg := range msgChan {
-				processMessage(msg, workerID)
+				processMessage(ctx, redisClient, msg, workerID)
 			}
 		}(i)
 	}
 
 	// Leer mensajes de Kafka y enviarlos al canal
-	ctx := context.Background()
 	for {
 		msg, err := reader.ReadMessage(ctx)
 		if err != nil {
@@ -57,12 +70,34 @@ func main() {
 	}
 }
 
-func processMessage(msg kafka.Message, workerID int) {
+func processMessage(ctx context.Context, redisClient *redis.Client, msg kafka.Message, workerID int) {
 	var clima ClimaMessage
 	if err := json.Unmarshal(msg.Value, &clima); err != nil {
 		log.Printf("Worker %d: Error parseando JSON: %v", workerID, err)
 		return
 	}
-	log.Printf("Worker %d: Mensaje recibido - Description: %s, Country: %s, Weather: %s",
-		workerID, clima.Description, clima.Country, clima.Weather)
+
+	// Generar clave única con partición y offset para evitar duplicación
+	key := fmt.Sprintf("clima:%s:%d-%d", strings.ReplaceAll(clima.Country, " ", "_"), msg.Partition, msg.Offset)
+
+	// Verificar si el mensaje ya fue procesado (evitar duplicación)
+	if exists, _ := redisClient.Exists(ctx, key).Result(); exists > 0 {
+		log.Printf("Worker %d: Mensaje ya procesado (clave: %s)", workerID, key)
+		return
+	}
+
+	// Almacenar en Redis como hash
+	err := redisClient.HSet(ctx, key, map[string]interface{}{
+		"description": clima.Description,
+		"country":     clima.Country,
+		"weather":     clima.Weather,
+	}).Err()
+	if err != nil {
+		log.Printf("Worker %d: Error almacenando en Redis: %v", workerID, err)
+		return
+	}
+
+	// Establecer TTL de 7 días
+	redisClient.Expire(ctx, key, 7*24*time.Hour)
+	log.Printf("Worker %d: Mensaje procesado y almacenado: %s (clave: %s)", workerID, msg.Value, key)
 }
