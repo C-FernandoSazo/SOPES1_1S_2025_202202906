@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbit-consumer
+  namespace: proyecto2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rabbit-consumer
+  template:
+    metadata:
+      labels:
+        app: rabbit-consumer
+    spec:
+      containers:
+      - name: rabbit-consumer
+        image: 34.70.50.55.nip.io/proyecto2/rabbit-consumer:latest
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"

@@ -13,8 +13,8 @@ import (
 )
 
 var (
-	// Variable de conexión a Kafka
-	kafkaAddr = "kafka-writer:50052" // Nombre del servicio en Kubernetes
+	kafkaAddr  = "kafka-writer:50052"  // Servicio kafka-writer
+	rabbitAddr = "rabbit-writer:50051" // Servicio rabbit-writer
 )
 
 // Estructura para parsear JSON del body HTTP
@@ -51,9 +51,17 @@ func publicarHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Responder al cliente con un JSON de estado
+	// Llamar a RabbitMQ
+	respRabbit, err := callWriterService(rabbitAddr, data)
+	if err != nil {
+		http.Error(w, "Error publicando en RabbitMQ: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Responder con estado de ambos
 	response := map[string]interface{}{
-		"kafka": respKafka,
+		"kafka":  respKafka,
+		"rabbit": respRabbit,
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
