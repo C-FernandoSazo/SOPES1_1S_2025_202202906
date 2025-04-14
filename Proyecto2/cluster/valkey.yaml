@@ -23,16 +23,8 @@ spec:
             memory: "64Mi"
             cpu: "100m"
           limits:
-            memory: "256Mi"
+            memory: "512Mi"
             cpu: "500m"
-        volumeMounts:
-        - name: valkey-storage
-          mountPath: /data
-      volumes:
-      - name: valkey-storage
-        persistentVolumeClaim:
-          claimName: valkey-pvc
-
 ---
 apiVersion: v1
 kind: Service
@@ -47,15 +39,3 @@ spec:
     targetPort: 6379
     protocol: TCP
   type: ClusterIP
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: valkey-pvc
-  namespace: proyecto2
-spec:
-  accessModes:
-ReadWriteOnce
-  resources:
-requests:
-  storage: 2Gi
-  storageClassName: standard

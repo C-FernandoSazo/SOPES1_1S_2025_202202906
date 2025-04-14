@@ -28,3 +28,9 @@ Plogins de Go para protoc
 go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 ```
+
+ver logs de un pod en especifico
+
+```bash
+ kubectl logs -l app=rabbit-consumer -n proyecto2
+```

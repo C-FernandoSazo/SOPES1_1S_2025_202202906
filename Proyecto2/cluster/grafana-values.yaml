@@ -1,0 +1,25 @@
+persistence:
+  enabled: true
+  storageClassName: standard
+  accessModes:
+    - ReadWriteOnce
+  size: 2Gi
+service:
+  type: LoadBalancer
+  port: 80
+  targetPort: 3000
+adminPassword: admin123
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+    - name: Redis
+      type: redis-datasource
+      access: proxy
+      url: redis.proyecto2.svc.cluster.local:6379
+      isDefault: false
+    - name: Valkey
+      type: redis-datasource
+      access: proxy
+      url: valkey.proyecto2.svc.cluster.local:6379
+      isDefault: false
