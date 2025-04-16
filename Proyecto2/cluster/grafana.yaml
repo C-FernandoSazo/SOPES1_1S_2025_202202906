@@ -3,12 +3,15 @@ persistence:
   storageClassName: standard
   accessModes:
     - ReadWriteOnce
-  size: 2Gi
+  size: 3Gi
+
 service:
   type: LoadBalancer
   port: 80
   targetPort: 3000
-adminPassword: admin123
+
+adminPassword: cesarFer123
+
 datasources:
   datasources.yaml:
     apiVersion: 1

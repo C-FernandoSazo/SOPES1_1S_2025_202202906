@@ -1,0 +1,13 @@
+# Etapa de compilación
+FROM rust:1.81 AS builder
+
+WORKDIR /usr/src/rust-api
+COPY . .
+RUN cargo build --release
+
+# Imagen final (Distroless)
+FROM gcr.io/distroless/cc-debian12
+
+COPY --from=builder /usr/src/rust-api/target/release/rust-api /usr/local/bin/rust-api
+
+CMD ["/usr/local/bin/rust-api"]

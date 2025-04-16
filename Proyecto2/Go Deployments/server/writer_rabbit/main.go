@@ -21,7 +21,7 @@ type server struct {
 
 func main() {
 	// Conectar a RabbitMQ
-	conn, err := amqp.Dial("amqp://default_user_vPpH5kybkT4B7rsB_yp:VhcYNU8eBPN9TkbfyAjK9IUe2yIcrSba@clima-rabbit.proyecto2.svc.cluster.local:5672/")
+	conn, err := amqp.Dial("amqp://default_user_OHcC7hSMN9bwkYmR9gc:EFGBxZb_RpQ8I8vjeDMUETWZHJnoPU-w@clima-rabbit.proyecto2.svc.cluster.local:5672/")
 	if err != nil {
 		log.Fatalf("Error conectando a RabbitMQ: %v", err)
 	}

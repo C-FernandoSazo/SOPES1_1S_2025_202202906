@@ -1,0 +1,18 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rust-api-ingress
+  namespace: proyecto2
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: 34.29.212.164.nip.io
+    http:
+      paths:
+      - path: /input
+        pathType: Prefix
+        backend:
+          service:
+            name: rust-api
+            port:
+              number: 8080

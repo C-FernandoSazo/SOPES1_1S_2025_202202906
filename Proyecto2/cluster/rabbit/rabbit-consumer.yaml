@@ -18,8 +18,8 @@ spec:
         image: 34.70.50.55.nip.io/proyecto2/rabbit-consumer:latest
         resources:
           requests:
-            memory: "64Mi"
+            memory: "512Mi"
             cpu: "100m"
           limits:
-            memory: "512Mi"
+            memory: "1Gi"
             cpu: "500m"
