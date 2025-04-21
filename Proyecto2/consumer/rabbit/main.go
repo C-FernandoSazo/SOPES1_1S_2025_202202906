@@ -97,6 +97,19 @@ func main() {
 		// Establecer expiración (7 días)
 		client.Do(ctx, client.B().Expire().Key(key).Seconds(7*24*3600).Build())
 
+		// Incrementar contador por país y total en el hash `clima:counters:countries`
+		countryField := fmt.Sprintf("%s:count", strings.ReplaceAll(clima.Country, " ", "_"))
+		err = client.Do(ctx, client.B().Hincrby().Key("clima:counters:countries").Field(countryField).Increment(1).Build()).Error()
+		if err != nil {
+			log.Printf("Error incrementando contador de país: %v", err)
+			continue
+		}
+		err = client.Do(ctx, client.B().Hincrby().Key("clima:counters:countries").Field("total_messages").Increment(1).Build()).Error()
+		if err != nil {
+			log.Printf("Error incrementando contador total: %v", err)
+			continue
+		}
+
 		log.Printf("Almacenado en Valkey: %s (clave: %s)", msg.Body, key)
 	}
 }

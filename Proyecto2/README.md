@@ -20,3 +20,7 @@ kubectl port-forward svc/goclient 8080:8080 -n proyecto2
 
 
 curl -X POST http://34.29.212.164.nip.io/input -H "Content-Type: application/json" -d '{"description":"Soleado","country":"España","weather":"25°C"}'
+
+activar locust
+
+locust -f locustfile.py

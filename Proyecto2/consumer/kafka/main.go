@@ -99,5 +99,16 @@ func processMessage(ctx context.Context, redisClient *redis.Client, msg kafka.Me
 
 	// Establecer TTL de 7 días
 	redisClient.Expire(ctx, key, 7*24*time.Hour)
+
+	// Incrementar contador por país y total en el hash `clima:counters:countries`
+	countryField := fmt.Sprintf("%s:count", strings.ReplaceAll(clima.Country, " ", "_"))
+	pipe := redisClient.Pipeline()
+	pipe.HIncrBy(ctx, "clima:counters:countries", countryField, 1)     // Incrementar contador del país
+	pipe.HIncrBy(ctx, "clima:counters:countries", "total_messages", 1) // Incrementar total
+	if _, err := pipe.Exec(ctx); err != nil {
+		log.Printf("Worker %d: Error actualizando contadores: %v", workerID, err)
+		return
+	}
+
 	log.Printf("Worker %d: Mensaje procesado y almacenado: %s (clave: %s)", workerID, msg.Value, key)
 }
